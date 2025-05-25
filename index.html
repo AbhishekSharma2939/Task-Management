@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Management Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.2/axios.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+  <body class="bg-[url('images/bgImage1.jpeg')] bg-contain bg-contain">
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function App() {
+      const [tasks, setTasks] = useState([]);
+      const [title, setTitle] = useState('');
+      const [description, setDescription] = useState('');
+      const [priority, setPriority] = useState('Low');
+      const [filter, setFilter] = useState('All');
+      const [sortBy, setSortBy] = useState('createdAt');
+      const [editingTask, setEditingTask] = useState(null);
+
+      // Fetch tasks from backend
+      const fetchTasks = async () => {
+        try {
+          const response = await axios.get('http://localhost:5000/api/tasks');
+          setTasks(response.data);
+        } catch (error) {
+          console.error('Error fetching tasks:', error);
+        }
+      };
+
+      useEffect(() => {
+        fetchTasks();
+      }, []);
+
+      // Handle task creation or update
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        const taskData = { title, description, priority };
+
+        try {
+          if (editingTask) {
+            // Update task
+            await axios.put(`http://localhost:5000/api/tasks/${editingTask._id}`, taskData);
+            setEditingTask(null);
+          } else {
+            // Create task
+            await axios.post('http://localhost:5000/api/tasks', taskData);
+          }
+          setTitle('');
+          setDescription('');
+          setPriority('Low');
+          fetchTasks();
+        } catch (error) {
+          console.error('Error saving task:', error);
+        }
+      };
+
+      // Handle task deletion
+      const handleDelete = async (id) => {
+        try {
+          await axios.delete(`http://localhost:5000/api/tasks/${id}`);
+          fetchTasks();
+        } catch (error) {
+          console.error('Error deleting task:', error);
+        }
+      };
+
+      // Handle task edit
+      const handleEdit = (task) => {
+        setEditingTask(task);
+        setTitle(task.title);
+        setDescription(task.description);
+        setPriority(task.priority);
+      };
+
+      // Handle task completion toggle
+      const handleToggleComplete = async (task) => {
+        try {
+          await axios.put(`http://localhost:5000/api/tasks/${task._id}`, {
+            ...task,
+            completed: !task.completed,
+          });
+          fetchTasks();
+        } catch (error) {
+          console.error('Error updating task:', error);
+        }
+      };
+
+      // Filter and sort tasks
+      const filteredTasks = tasks
+        .filter((task) => filter === 'All' || task.priority === filter)
+        .sort((a, b) => {
+          if (sortBy === 'priority') {
+            const priorityOrder = { High: 1, Medium: 2, Low: 3 };
+            return priorityOrder[a.priority] - priorityOrder[b.priority];
+          }
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+        <div className="container mx-auto bg-green-100 p-4 rounded-md shadow-md max-w-2xl">
+          <h1 className="text-3xl font-bold text-center mb-6">Task Management Dashboard</h1>
+
+          {/* Task Form */}
+          <div className="bg-red-100 p-6 rounded-lg shadow-md mb-6">
+            <h2 className="text-xl font-semibold mb-4">{editingTask ? 'Edit Task' : 'Add New Task'}</h2>
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Task Title"
+                className="w-full p-2 border rounded-md"
+                required
+              />
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Task Description"
+                className="w-full p-2 border rounded-md"
+                rows="4"
+              />
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className="w-full p-2 border rounded-md"
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+              <button
+                onClick={handleSubmit}
+                className="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600"
+              >
+                {editingTask ? 'Update Task' : 'Add Task'}
+              </button>
+              {editingTask && (
+                <button
+                  onClick={() => {
+                    setEditingTask(null);
+                    setTitle('');
+                    setDescription('');
+                    setPriority('Low');
+                  }}
+                  className="w-full bg-gray-500 text-white p-2 rounded-md hover:bg-gray-600"
+                >
+                  Cancel Edit
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Filter and Sort */}
+          <div className="flex justify-between mb-4">
+            <div>
+              <label className="mr-2">Filter by Priority:</label>
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="p-2 border rounded-md"
+              >
+                <option value="All">All</option>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+            <div>
+              <label className="mr-2">Sort by:</label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="p-2 border rounded-md"
+              >
+                <option value="createdAt">Date Created</option>
+                <option value="priority">Priority</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Task List */}
+          <div className="grid gap-4">
+            {filteredTasks.map((task) => (
+              <div
+                key={task._id}
+                className={`p-4 bg-white rounded-lg shadow-md flex justify-between items-center ${task.completed ? 'bg-green-100' : ''}`}
+              >
+                <div>
+                  <h3 className={`text-lg font-semibold ${task.completed ? 'line-through' : ''}`}>
+                    {task.title}
+                  </h3>
+                  <p className="text-gray-600">{task.description}</p>
+                  <p className="text-sm text-gray-500">Priority: {task.priority}</p>
+                  <p className="text-sm text-gray-500">
+                    Created: {new Date(task.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleToggleComplete(task)}
+                    className="bg-green-500 text-white px-3 py-1 rounded-md hover:bg-green-600"
+                  >
+                    {task.completed ? 'Undo' : 'Complete'}
+                  </button>
+                  <button
+                    onClick={() => handleEdit(task)}
+                    className="bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(task._id)}
+                    className="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
